@@ -1,0 +1,13 @@
+dev:    size   erasesize  name
+mtd0: 000c0000 00001000 "uboot"
+mtd1: 00040000 00001000 "uboot environment"
+mtd2: 00100000 00001000 "reserved"
+m25p80 spi0.0: found sst25vf016b, expected m25p80
+m25p80 spi0.0: sst25vf016b (2048 Kbytes)
+Creating 3 MTD partitions on "spi_flash":
+0x000000000000-0x0000000c0000 : "uboot"
+0x0000000c0000-0x000000100000 : "uboot environment"
+0x000000100000-0x000000200000 : "reserved"
+No NAND device found.
+Chip scan failed
+GPMI NAND driver registered. (IMX)
