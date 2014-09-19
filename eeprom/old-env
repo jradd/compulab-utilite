@@ -1,0 +1,47 @@
+autoload     no
+baudrate     115200
+bootargs     console=ttymxc3,115200 root=${root1} rw rootwait
+bootcmd     mmc dev ${mmcdev}; if mmc rescan; then if run loadmmcbootscript; then run mmcbootscript; else if run mmcloadkernel; then run mmcboot; fi; fi; else if sata init; then if run loadsatabootscript; then run satabootscript; else if run sataloadkernel; then run sataboot; fi; fi; fi; fi;
+bootdelay     3
+bootscr     boot.scr
+console     ttymxc3,115200
+ethact     FEC
+ethaddr     00:01:c0:14:0d:54
+kernel     uImage-cm-fx6
+kernelNew     uImage-3.15rc3
+kernelRun     uImage-cm-fx6
+kernelStock     uuImage-3.0.35-cm-fx6-4
+loadaddr     0x10800000
+loadmmcbootscript     fatload mmc ${mmcdev} ${loadaddr} ${bootscr}
+loadsatabootscript     fatload sata ${satadev} ${loadaddr} ${bootscr}
+mmcargs     setenv bootargs console=${console} root=${mmcroot} ${video}
+mmcboot     echo Booting from mmc ...; run mmcargs; bootm ${loadaddr}
+mmcbootscript     echo Running bootscript from mmc ...; source ${loadaddr}
+mmcdev     2
+mmcloadkernel     fatload mmc ${mmcdev} ${loadaddr} ${kernel}
+mmcroot     /dev/mmcblk0p2 rw rootwait
+myboot     mmc dev ${mmcdev}; mmc rescan; fatload mmc ${mmcdev} ${loadaddr} ${kernelRun}; echo Booting from mmc...; run mybootargs; bootm ${loadaddr}
+mybootargs     setenv bootargs console=${console} root=${rootRun} rw rootwait ${video}
+mykernel     uImage-cm-fx6-15
+mymmcboot     mmc dev ${mmcdev}; mmc rescan; sata init; fatload sata ${satadev} ${loadaddr} ${mykernel}; run mmcboot
+mysataboot     sata init; run sataloadkernel; run sataboot
+nandargs     setenv bootargs console=${console} root=${nandroot} rootfstype=${nandrootfstype} ${video}
+nandboot     echo Booting from nand ...; run nandargs; nand read ${loadaddr} 0 400000 && bootm ${loadaddr}
+nandroot     /dev/mtdblock4 rw
+nandrootfstype     ubifs
+root1=/dev/mmcblk0p2
+root2=/dev/mmcblk0p3
+rootRun     /dev/mmcblk0p2
+run_eboot     echo Starting EBOOT ...; mmc dev ${mmcdev} && mmc rescan && mmc read 10042000 a 400 && go 10042000
+sataargs     setenv bootargs console=${console} root=${sataroot} ${video}
+sataboot     echo Booting from sata ...; run sataargs; bootm ${loadaddr}
+satabootscript     echo Running bootscript from sata ...; source ${loadaddr}
+satadev     0
+sataloadkernel     fatload sata ${satadev} ${loadaddr} ${kernel}
+sataroot     /dev/sda2 rw rootwait
+serial     CM-FX6-C1200QM-D2G-N0-ND0-U5-E-A-WB-V100-131110-0001c0140d54
+stderr     serial
+stdin     serial
+stdout     serial
+video_dvi     mxcfb0:dev=dvi,1280x800M-24@50,if=RGB24
+video_hdmi     mxcfb0:dev=hdmi,1920x1080M-24@50,if=RGB24
