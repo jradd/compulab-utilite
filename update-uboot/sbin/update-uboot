@@ -1,0 +1,38 @@
+#!/bin/bash
+###
+### Keep boot.scr up-to-date with /etc/u-boot.d
+### Similar to update-grub
+###
+
+#Debug
+set -x
+
+#################
+### FUNCTIONS ###
+#################
+function buildBootCMD(){
+	#cmd files will just be copy/pasted in
+	#tmpl files will be included and the output captured to boot.cmd
+	cd /etc/u-boot.d
+	for file in $(find . -name '*\.tmpl' -o -name '*\.cmd' | sort); do
+                echo -e "\n### $(basename $file)"
+   		if [[ "$file"  =~ \.cmd$ ]]; then
+			cat "$file" 
+   		elif [[ "$file" =~ \.tmpl ]]; then
+        		(. "$file")
+   		fi
+	done 
+}
+
+##################
+#### EXECUTION ###
+##################
+IFS='
+'
+
+#Load settings
+. /etc/u-boot
+buildBootCMD > /tmp/boot.cmd
+mkimage -C none -A arm -T script -d /tmp/boot.cmd /boot/boot.scr
+#rm /tmp/boot.cmd
+

@@ -1,0 +1,5 @@
+DEFAULT_IMG='aImage-3.17-rc5-l2'
+DEFAULT_DTB='imx6q-sbc-fx6m.dtb'
+DEFAULT_BOOT_ARGS='console=${console},${baudrate} root=${boot_fs} rw rootwait ${video}'
+
+BOOT_ARGS="cgroup_disable=memory"
