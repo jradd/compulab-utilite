@@ -1,9 +1,9 @@
 #!/bin/bash
 
 set -x
-BASE=/root/kernel
-KERNEL="3.17-rc5"
-REV=3
+BASE=/home/theloeki/cmtools
+KERNEL="3.17-rc7"
+REV=4
 
 function prepare() {
         apt-get install curl patch bc make gcc ncurses-dev lzop u-boot-tools bzip2
@@ -29,8 +29,7 @@ function prepare() {
 
 function getKernel(){
     cd $BASE
-    url=https://www.kernel.org/pub/linux/kernel/v3.x/testing/linux-${KERNEL}.tar.xz
-    curl $url | tar xJv
+    curl $KERNELurl | tar xJv -f -
     cd $KERNELdir
     make imx_v6_v7_defconfig
 }
@@ -60,23 +59,27 @@ function getPkgUmiddelb(){
 }
 
 function patch(){
-    cp -v dts/cm/* $KERNELdir/archarm/boot/dts/
+    mkdir ${KERNELdir}/clog/
+    cp -v dts/cm/* ${KERNELdir}/arch/arm/boot/dts/
 
     #Get out pu_dummy and some more! 
     #Insert johnbock's mac fix (http://www.utilite-computer.com/forum/viewtopic.php?f=66&t=1986)
     #see diff in dts/loeki/
     #imx6q-sbc-fx6m.dtb is the new dtb!
-    cp -v dts/loeki/* $KERNELdir/archarm/boot/dts/
+    cp -v dts/loeki/* ${KERNELdir}/arch/arm/boot/dts/
 
     #Fix Makefile in arch/arm/boot/dts:
+    sed -i 's|imx6q-cm-fx6.dtb|imx6q-sbc-fx6m.dtb|g' ${KERNELdir}/arch/arm/boot/dts/Makefile
 }
 
 function compile(){
     cd $KERNELdir
+    export V=1
+    rm -f ${KERNELdir}/clog/*
     make clean
-    make -j 4 zImage  
-    make -j 4 uImage  
-    make -j 4 modules 
+    make -j4 zImage 2>&1 | tee $KERNELdir/clog/zImage.log 
+    make -j4 uImage 2>&1 | tee $KERNELdir/clog/uImage.log 
+    make modules 2>&1 | tee $KERNELdir/clog/modules.log 
     #make modules_install
     #make imx6q-cm-fx6.dtb
     make imx6q-sbc-fx6m.dtb
@@ -84,16 +87,17 @@ function compile(){
 
 function install(){
     cd $KERNELdir
-    make modules_install
+
+    sudo make modules_install
 
     #With appended DTB:
-    cat arch/arm/boot/zImage arch/arm/boot/dts/imx6q-sbc-fx6m.dtb > /tmp/zImage-${KVER}
-    mkimage -A arm -O linux -T kernel -C none -a 0x10008000 -e 0x10008000 -n Linux-${KVER} -d /tmp/zImage-${KVER} /boot/aImage-${KVER}
-    rm /tmp/zImage-${KVER}
+    cat arch/arm/boot/zImage arch/arm/boot/dts/imx6q-sbc-fx6m.dtb > /tmp/zImage-${KERNELver}
+    sudo mkimage -A arm -O linux -T kernel -C none -a 0x10008000 -e 0x10008000 -n Linux-${KERNELver} -d /tmp/zImage-${KERNELver} /boot/aImage-${KERNELver}
+    rm /tmp/zImage-${KERNELver}
 
     #Without appended DTB:
-    mkimage -A arm -O linux -T kernel -C none -a 0x10008000 -e 0x10008000 -n Linux-${KVER} -d arch/arm/boot/zImage /boot/uImage-${KVER}
-    cp arch/arm/boot/dts/imx6q-sbc-fx6m.dtb /boot/
+    sudo mkimage -A arm -O linux -T kernel -C none -a 0x10008000 -e 0x10008000 -n Linux-${KERNELver} -d arch/arm/boot/zImage /boot/uImage-${KERNELver}
+    sudo cp arch/arm/boot/dts/imx6q-sbc-fx6m.dtb /boot/
 
 }
 
@@ -106,9 +110,16 @@ IFS='
 '
 
 KERNELdir="linux-$KERNEL"
-[[ $KERNEL =~ rc ]] && KERNEL=${KERNEL/-/.0-}
+if [[ $KERNEL =~ rc ]]; then
+	KERNELurl=https://www.kernel.org/pub/linux/kernel/v3.x/testing/linux-${KERNEL}.tar.xz
+	KERNEL=${KERNEL/-/.0-}
+else
+	KERNELurl=https://www.kernel.org/pub/linux/kernel/v3.x/linux-${KERNEL}.tar.xz
+fi
 
-KVER="${KERNEL}-l${REV}"
+KERNELver="${KERNEL}-l${REV}"
+#Useless for now
+#KVER="${KERNEL}-l${REV}"
 cd $BASE
 
 $1

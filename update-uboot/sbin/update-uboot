@@ -8,20 +8,40 @@
 set -x
 
 #################
+### VARIABLES ###
+#################
+CONFFILE=${CONFFILE:-/etc/u-boot}
+CONFDIR=${CONFDIR:-/etc/u-boot.d}
+
+#################
 ### FUNCTIONS ###
 #################
 function buildBootCMD(){
 	#cmd files will just be copy/pasted in
 	#tmpl files will be included and the output captured to boot.cmd
-	cd /etc/u-boot.d
+	cd $CONFDIR
 	for file in $(find . -name '*\.tmpl' -o -name '*\.cmd' | sort); do
-                echo -e "\n### $(basename $file)"
    		if [[ "$file"  =~ \.cmd$ ]]; then
+                        echo -e "\n### $(basename $file)"
 			cat "$file" 
    		elif [[ "$file" =~ \.tmpl ]]; then
+                        echo -e "\n### $(basename $file)"
         		(. "$file")
+		elif [[ "$file" =~ \.pscr ]]; then
+			script=$(basename $file | sed 's|\.pscr$||')
+			mkimage -C none -A arm -T script -d $file /boot/${script}.scr 1>&2
+            		echo "setenv run_${script} 'bla'"
    		fi
 	done 
+}
+
+function saveEnv(){
+	[[ -x $(which fw_printenv) ]] || { echo "fw_printenv not found!" ; exit 1 }
+        fw_printenv | sed "s|\([^=]\+\)=\(.*\)|setenv \1 '\2'|g"
+
+}
+
+	
 }
 
 ##################
@@ -31,7 +51,10 @@ IFS='
 '
 
 #Load settings
-. /etc/u-boot
+. $CONFFILE
+
+saveEnv
+#use mktemp eventually
 buildBootCMD > /tmp/boot.cmd
 mkimage -C none -A arm -T script -d /tmp/boot.cmd /boot/boot.scr
 #rm /tmp/boot.cmd
