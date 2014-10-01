@@ -1,61 +1,229 @@
 #!/bin/bash
 ###
-### Keep boot.scr up-to-date with /etc/u-boot.d
+### Manage u-boot environment
+### Keep boot.scr up-to-date with /etc/u-boot/boot.d
 ### Similar to update-grub
+### but better. Of course ;)
 ###
 
 #Debug
 set -x
 
-#################
-### VARIABLES ###
-#################
-CONFFILE=${CONFFILE:-/etc/u-boot}
-CONFDIR=${CONFDIR:-/etc/u-boot.d}
+#########################
+### PRE-FLIGHT CHECKS ###
+#########################
+[ `id -u` -eq 0 ] || { echo "need root!"; exit 1 ; }
+[ -x `which blkid` ] || { echo "blkid not found, me wants!"; exit 1 ; }
+[ -x `which fw_printenv` ] || { echo "fw_printenv not found, me wants!"; exit 1 ; }
+[ -x `which mkimage` ] || { echo "mkimage not found, me wants!"; exit 1 ; }
+
+###################
+### VARS & PREP ###
+###################
+IFS='
+'
+
+CONF_DIR=${CONF_DIR:-/etc/u-boot}
+CONF_FILE=${CONF_FILE:-$CONF_DIR/update.conf}
+#Load settings
+. $CONF_DIR/update.conf
+
+UENV_UPDATE_METHOD=${UENV_UPDATE_METHO:-"scr"}
+UENV_READONLY=$(echo "${UENV_READONLY} ${UENV_RESERVED}" | tr ' ' '\n')
+BOOT_LOCATION=${BOOT_LOCATION:-"/boot"}
+BOOT_DELAY=${BOOT_DELAY:-5}
+DEFAULT_IMG=${DEFAULT_IMG:-"latest"}
+DEFAULT_DTB=${DEFAULT_DTB:-"latest"}
+BOOT_ARGS="${DEFAULT_BOOT_ARGS:-'console=${console},${baudrate} root=${boot_fs} rw rootwait ${video}'}${BOOT_ARGS:+ $BOOT_ARGS}"
+
+bootMount=$(getMount $BOOT_LOCATION)
+bootDev=$(df -l --output=source $bootMount | tail -1)
+TRY_DEVICES=${TRY_DEVICES:-"mmc sata"}
+OS_DEVICES=${OS_DEVICES:-$bootDev)}
+
+tmpDir=$(mktemp -d /tmp/uboot-XXXX)
+
 
 #################
 ### FUNCTIONS ###
 #################
-function buildBootCMD(){
-	#cmd files will just be copy/pasted in
-	#tmpl files will be included and the output captured to boot.cmd
-	cd $CONFDIR
-	for file in $(find . -name '*\.tmpl' -o -name '*\.cmd' | sort); do
-   		if [[ "$file"  =~ \.cmd$ ]]; then
-                        echo -e "\n### $(basename $file)"
-			cat "$file" 
-   		elif [[ "$file" =~ \.tmpl ]]; then
-                        echo -e "\n### $(basename $file)"
-        		(. "$file")
-		elif [[ "$file" =~ \.pscr ]]; then
-			script=$(basename $file | sed 's|\.pscr$||')
-			mkimage -C none -A arm -T script -d $file /boot/${script}.scr 1>&2
-            		echo "setenv run_${script} 'bla'"
-   		fi
-	done 
+function getMount(){
+    #Check & resolve $1 as a mounted dev
+    loc=$1
+    #If it's a device node, let's look it up
+    if [[ $loc =~ ^/dev ]]; then
+        #If it's a device node, let's look it up
+        if [[ -h $loc ]]; then
+            #It's a symlink, resolve it back
+            loc=$(readlink -f $loc)
+        fi
+        #Check if it's already mounted
+        #use df rather than /proc/mounts to make sure we have the real blockdev
+        mounted=$(df -l --output=source,target | grep $loc)
+        if [ -n "$mounted" ]; then
+            mounted=$(echo $mounted | awk '{ print $2 }')
+        else
+            #Might be in fstab
+            mount $loc
+            if [ $? -eq 0 ]; then
+                mounted=$(df -l --output=source,target | grep $loc | awk '{ print $2 }')
+            else
+                #OK, so we invent a mountpoint
+                mounted=$(mktemp -d ${tmpDir}/mnt-XXXX)
+                mount $loc $mounted || { echo "Couldn't mount blockdev $loc!"; exit 1 ; }
+            fi
+        fi
+    elif [[ ! -d $loc ]]; then
+        #not a device and not a directory
+        echo "Directory $loc doesn't exist"
+        exit 1
+    elif [[ -z $(grep " $loc " /proc/mounts) ]]; then
+        #an unmounted dir should be in fstab
+        mount $loc || { echo "Couldn't mount directory ${loc}!" ; exit 1 ; }
+        mounted=$loc
+    else
+        #it's already mounted
+        mounted=$loc
+    fi
+
+    echo "$mounted"
+}
+
+function ubootBlockDev(){
+#Translate (simple) Linux blockdevs to uboot bus dev parts
+    bdev=$(echo $1 | sed 's|/dev/||g')
+
+    part=$(($(echo $bdev | sed 's|sd[a-z]\+||g')-1))
+
+    case $bdev in 
+       sd[a-z]+[0-9]+) bus="sata"; dev=0 ;;
+       *) echo "Don't know how to map /dev/$bdev to U-Boot's mapping"
+    esac
+
+    echo "$bus $dev $part"
+}
+
+function generate(){
+#Generate the desired output for all applicable files in a dir
+#USAGE: generate <exec for scr's> <exec for senv's> <exec for penv's> <location>
+    script=$1
+    senv=$2
+    penv=$3
+    loc=$4
+    for file in $(find $loc -name '*\.tmpl' -o -name '*\.cmd' -o -name '*\.senv' -o -name '*\.penv' | sort) do
+        echo -e "\n### $(basename $file)"
+
+        if [[ "$file"  =~ \.cmd$ ]]; then
+            $script "$file" 
+        elif [[ "$file" =~ \.tmpl ]]; then
+            #tmpl files will simply be included
+            (. "$file")
+        elif [[ "$file" =~ \.senv ]]; then
+            $senv "$file" 
+        elif [[ "$file" =~ \.penv ]]; then
+            $penv "$file" 
+        fi
+    done
+}
+
+function scriptGen(){
+#All files in $1 will accumulate into a .pscr script
+    generate $1 cat senv2scr penv2scr
+}
+
+function senvGen(){
+#All files in $1 will accumulate into a setenv file 
+    generate $1 scr2senv cat penv2senv
+}
+
+function penvGen(){
+#All files in $1 will accumulate into a printenv file 
+    generate $1 scr2penv senv2penv cat
+}
+
+function updateBoot(){
+   penvGen $CONF_DIR/uEnv.d > ${bootMount}/uEnv.txt
+   scriptGen $CONF_DIR/boot.d > ${tmpDir}/boot.pscr
+   mkimage -C none -A arm -T script -d ${tmpDir}/boot.pscr ${bootMount}/boot.scr
+
+   for file in $(find . -name '*\.pscr' | sort); do
+       script=$(basename $file | sed 's|\.pscr$||')
+       mkimage -C none -A arm -T script -d $file ${bootMount}/${script}.scr 1>&2
+       echo "setenv run_${script} 'TODO'" > $CONF_DIR/env.d/${script}-runner.cmd
+   done
+
+}
+
+function uenv(){
+   case $1 in
+      "scr") 
+         scriptGen $CONF_DIR/env.d > $tmpDir/env.pscr
+         #TODO
+         
+      ;;
+
+      "senv")
+         penvGen $CONF_DIR/env.d > $tmpDir/env.senv
+         #TODO
+         #make some diff of env
+         #fw_setenv -s $tmpDir/env
+      ;;
+
+      *) echo "Unsupported U-boot env update method $1"  ; exit ;; 
+   esac
+
+}
+
+function getEnv(){
+#Print out current env to a backup
+    fw_printenv | grep -v -f <(echo -e "$UENV_READONLY")
 }
 
 function saveEnv(){
-	[[ -x $(which fw_printenv) ]] || { echo "fw_printenv not found!" ; exit 1 }
-        fw_printenv | sed "s|\([^=]\+\)=\(.*\)|setenv \1 '\2'|g"
-
+#Print out current env to a backup
+    fw_printenv > $CONF_DIR/backup.penv
 }
 
-	
+function penv2scr(){
+#Convert printenv-like output to script
+    sed "s|\([^=]\+\)=\(.*\)|setenv \1 '\2'|g" $1
+}  
+
+function penv2senv(){
+#Convert printenv-like output to setenv-like output
+    sed "s|\([^=]\+\)=\(.*\)|\1 '\2'|g" $1
+} 
+
+function senv2scr(){
+#Convert setenv-like output to script
+    sed -e '/^[[:space:]]*#/d' -e "s|\([^ ]\+\)[[:space:]]\+\(.*\)|setenv \1 '\2'|g" $1
+}  
+
+function scr2penv(){
+#Convert script-like output to penv
+#Probably needs some love (EOL's, single quotes)
+    sed "s|setenv ||g;s|^\([^ ]\+\) [\']\{0,1\}|\1=|g;s|'$||g" $1
+}
+
+function scr2senv(){
+#Convert script-like output to setenv
+#Probably needs some love (EOL's, single quotes)
+    sed "s|setenv ||g;" $1
 }
 
 ##################
 #### EXECUTION ###
 ##################
-IFS='
-'
+tmpDir=$(mktemp -d /tmp/uboot-XXXX)
+bootMount=$(getMount $BOOT_LOCATION)
 
-#Load settings
-. $CONFFILE
+#saveEnv
+bootTmp=$(mktemp /tmp/ubootcmd-XXXX)
 
-saveEnv
-#use mktemp eventually
-buildBootCMD > /tmp/boot.cmd
-mkimage -C none -A arm -T script -d /tmp/boot.cmd /boot/boot.scr
-#rm /tmp/boot.cmd
 
+if [[ $bootMount =~ ^/tmp ]]; then
+    cd /
+    umount -f $bootMount
+fi
+
+#rm -rf $tmpDir 

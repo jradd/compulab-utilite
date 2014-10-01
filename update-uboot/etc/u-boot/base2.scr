@@ -1,0 +1,40 @@
+alatest=setenv kernel aImage-3.17-rc5-l2; run load_aimage
+autoload=no
+baudrate=115200
+beta=setenv kernel uImage-3.10.17-beta1; run load_uimage
+bootcmd=run init; run load_scr; run bootcmd
+bootdelay=5
+bootscr=boot.scr
+console=ttymxc3
+debian=setenv rootfs /dev/sda2; run load_linux
+debian_mmc=setenv rootfs /dev/mmcblk0p2; run load_linux
+dtb=imx6q-sbc-fx6m.dtb
+dtb_addr=15000000
+dtbaddr=15000000
+eth1addr=00:01:c0:14:11:64
+ethact=FEC
+ethaddr=00:01:c0:14:0d:54
+filesize=a2b
+img_addr=0x10800000
+init=mmc dev ${mmcdev}; mmc rescan; sata init
+latest=setenv kernel uImage-3.17-rc5-l2; run load_uimage
+lenhof=setenv kernel uImage-3.15-rc3; run load_aimage
+load_aimage=echo Loading combined ${kernel}...; mmc dev ${mmcdev}; sata init; ext4load sata 0 ${loadaddr} ${kernel}; setenv run_linux bootm ${loadaddr}
+load_linux=echo Booting ${rootfs}...; setenv bootargs console=${console},${baudrate} root=${rootfs} rw rootwait ${video}; run run_linux
+load_scr=ext4load sata 0 ${img_addr} ${bootscr}; source ${img_addr}
+load_uimage=echo Loading ${kernel} and ${dtb}...; mmc dev ${mmcdev}; sata init; ext4load sata 0 ${loadaddr} ${kernel}; ext4load sata 0 ${dtbaddr} ${dtb}; setenv run_linux bootm ${loadaddr} - ${dtb}
+loadaddr=0x10800000
+mmcdev=2
+nandargs=setenv bootargs console=${console},${baudrate} root=${nandroot} rootfstype=${nandrootfstype} ${video}
+nandboot=echo Booting from nand...; run nandargs; nand read ${loadaddr} 0 400000 && bootm ${loadaddr}
+nandroot=/dev/mtdblock4 rw
+nandrootfstype=ubifs
+run_eboot=echo Starting EBOOT...; mmc dev ${mmcdev} && mmc rescan && mmc read 10042000 a 400 && go 10042000
+serial=CM-FX6-C1200QM-D2G-N0-ND0-U5-E-A-WB-V100-131110-0001c0140d54
+stderr=serial
+stdin=serial
+stdout=serial
+stock=setenv kernel uImage-3.0.35; run load_aimage
+ubuntu_mmc=setenv rootfs /dev/mmcblk0p3; run load_linux
+video_dvi=mxcfb0:dev=dvi,1280x800M-24@50,if=RGB24
+video_hdmi=mxcfb0:dev=hdmi,1920x1080M-24@50,if=RGB24
