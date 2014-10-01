@@ -29,7 +29,7 @@ function prepare() {
 
 function getKernel(){
     cd $BASE
-    curl $KERNELurl | tar xJv -f -
+    curl -k $KERNELurl | tar xJv -f - || exit 1
     cd $KERNELdir
     make imx_v6_v7_defconfig
 }
@@ -73,8 +73,13 @@ function patch(){
 }
 
 function compile(){
+    if [[ ! -d ${KERNELdir}/clog/ ]]; then 
+	echo "Patch first"
+	exit 1
+    fi
     cd $KERNELdir
     export V=1
+    export V=99
     rm -f ${KERNELdir}/clog/*
     make clean
     make -j4 zImage 2>&1 | tee $KERNELdir/clog/zImage.log 
