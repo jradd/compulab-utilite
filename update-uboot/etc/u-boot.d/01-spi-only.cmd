@@ -5,19 +5,18 @@
 #setenv stdout serial
 #
 #ONLY IN SPI
-#setenv autoload no
-#setenv bootscr boot.scr
-#setenv ethaddr 00:01:c0:14:0d:54
-#setenv loadaddr 0x10800000
+setenv autoload yes
+setenv bootscr boot.scr
 #setenv console tymxc3
-#setenv serial myserial
 #setenv mmcdev 2
 #setenv video_dvi mxcfb0:dev=dvi,1280x800M-24@50,if=RGB24
 #setenv video_hdmi mxcfb0:dev=hdmi,1920x1080M-24@50,if=RGB24
 #
 ##USEFUL SETTINGS
-#setenv bootdelay 5
-#setenv init 'mmc dev ${mmcdev}; sata init'
+setenv bootdelay 5
+setenv init 'mmc dev ${mmcdev}; sata init'
+setenv load_rc ' sata init'
+
 #
 ##AND THESE
 #ethact FEC

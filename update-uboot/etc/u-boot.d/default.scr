@@ -1,0 +1,28 @@
+setenv bootdelay=3
+setenv autoload no
+setenv baudrate 115200
+setenv console ttymxc3,115200
+setenv kernel uImage-cm-fx6
+setenv bootscr boot.scr
+setenv video_hdmi mxcfb0:dev=hdmi,1920x1080M-24@50,if=RGB24
+setenv video_dvi mxcfb0:dev=dvi,1280x800M-24@50,if=RGB24
+setenv mmcdev 2
+setenv satadev 0
+setenv mmcroot /dev/mmcblk0p2 rw rootwait
+setenv sataroot /dev/sda2 rw rootwait
+setenv nandroot /dev/mtdblock4 rw
+setenv nandrootfstype ubifs
+setenv mmcargs 'setenv bootargs console=${console} root=${mmcroot} ${video}'
+setenv sataargs 'setenv bootargs console=${console} root=${sataroot} ${video}'
+setenv nandargs 'setenv bootargs console=${console} root=${nandroot} rootfstype=${nandrootfstype} ${video}'
+setenv loadmmcbootscript 'fatload mmc ${mmcdev} ${loadaddr} ${bootscr}'
+setenv loadsatabootscript 'fatload sata ${satadev} ${loadaddr} ${bootscr}'
+setenv mmcbootscript 'echo Running bootscript from mmc ...; source ${loadaddr}'
+setenv satabootscript 'echo Running bootscript from sata ...; source ${loadaddr}'
+setenv mmcloadkernel 'fatload mmc ${mmcdev} ${loadaddr} ${kernel}'
+setenv sataloadkernel 'fatload sata ${satadev} ${loadaddr} ${kernel}'
+setenv mmcboot 'echo Booting from mmc ...; run mmcargs; bootm ${loadaddr}'
+setenv sataboot 'echo Booting from sata ...; run sataargs; bootm ${loadaddr}'
+setenv nandboot 'echo Booting from nand ...; run nandargs; nand read ${loadaddr} 0 400000 && bootm ${loadaddr}'
+setenv run_eboot 'echo Starting EBOOT ...; mmc dev ${mmcdev} && mmc rescan && mmc read 10042000 a 400 && go 10042000'
+setenv bootcmd 'mmc dev ${mmcdev}; if mmc rescan; then if run loadmmcbootscript; then run mmcbootscript; else if run mmcloadkernel; then run mmcboot; fi; fi; else if sata init; then if run loadsatabootscript; then run satabootscript; else if run sataloadkernel; then run sataboot; fi; fi; fi; fi;'
