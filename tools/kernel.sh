@@ -80,11 +80,11 @@ function compile(){
     cd $KERNELdir
     export V=1
     export V=99
-    rm -f ${KERNELdir}/clog/*
+    rm -f clog/*
     make clean
-    make -j4 zImage 2>&1 | tee $KERNELdir/clog/zImage.log 
-    make -j4 uImage 2>&1 | tee $KERNELdir/clog/uImage.log 
-    make modules 2>&1 | tee $KERNELdir/clog/modules.log 
+    make -j4 zImage 2>&1 | tee clog/zImage.log 
+    make -j4 uImage 2>&1 | tee clog/uImage.log 
+    make modules 2>&1 | tee clog/modules.log 
     #make modules_install
     #make imx6q-cm-fx6.dtb
     make imx6q-sbc-fx6m.dtb

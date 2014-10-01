@@ -1,0 +1,72 @@
+#semi-constants
+cat<<CONSTANTS
+setenv autoload yes
+setenv bootdelay $BOOT_DELAY
+setenv bootscr boot.scr
+setenv loadaddr 0x10800000
+setenv dtbaddr 15000000
+setenv bootm_low 15000000
+setenv mmcdev 2
+setenv console ttymxc3
+CONSTANTS
+
+cat<<FUNCTIONS
+setenv init 'mmc dev ${mmcdev}; mmc rescan; sata init'
+
+setenv load_scr '${fs}load ${bus} 0 ${loadaddr} ${bootscr}; source ${loadaddr}'
+setenv load_img '${fs}load ${bus} 0 ${loadaddr} ${img};'
+setenv load_dtb '${fs}load ${bus} 0 ${dtbaddr} ${dtb};'
+
+FUNCTIONS
+
+for 
+
+
+
+
+#setenv bootdelay '5'
+
+#Builtins
+
+#setenv alatest 'setenv kernel aImage-3.17-rc5-l2; run load_aimage'
+#setenv autoload 'no'
+#setenv beta 'setenv kernel uImage-3.10.17-beta1; run load_uimage'
+#setenv bootcmd 'run init; run load_scr; run bootcmd'
+#setenv bootdelay '5'
+#setenv bootscr 'boot.scr'
+#setenv console 'ttymxc3'
+#setenv debian 'setenv rootfs /dev/sda2; run load_linux'
+#setenv debian_mmc 'setenv rootfs /dev/mmcblk0p2; run load_linux'
+#setenv dtb 'imx6q-sbc-fx6m.dtb'
+#setenv dtb_addr '15000000'
+#setenv dtbaddr '15000000'
+#setenv eth1addr '00:01:c0:14:11:64'
+#setenv ethact 'FEC'
+#setenv ethaddr '00:01:c0:14:0d:54'
+
+#setenv filesize 'a2b'
+#setenv img_addr '0x10800000'
+#setenv init 'mmc dev ${mmcdev}; mmc rescan; sata init'
+#setenv latest 'setenv kernel uImage-3.17-rc5-l2; run load_uimage'
+#setenv lenhof 'setenv kernel uImage-3.15-rc3; run load_aimage'
+#setenv load_aimage 'echo Loading combined ${kernel}...; mmc dev ${mmcdev}; sata init; ext4load sata 0 ${loadaddr} ${kernel}; setenv run_linux bootm ${loadaddr}'
+#setenv load_linux 'echo Booting ${rootfs}...; setenv bootargs console=${console},${baudrate} root=${rootfs} rw rootwait ${video}; run run_linux'
+#setenv load_scr 'ext4load sata 0 ${img_addr} ${bootscr}; source ${img_addr}'
+#setenv load_uimage 'echo Loading ${kernel} and ${dtb}...; mmc dev ${mmcdev}; sata init; ext4load sata 0 ${loadaddr} ${kernel}; ext4load sata 0 ${dtbaddr} ${dtb}; setenv run_linux bootm ${loadaddr} - ${dtb}'
+#setenv loadaddr '0x10800000'
+#setenv mmcdev '2'
+#setenv nandargs 'setenv bootargs console=${console},${baudrate} root=${nandroot} rootfstype=${nandrootfstype} ${video}'
+#setenv nandboot 'echo Booting from nand...; run nandargs; nand read ${loadaddr} 0 400000 && bootm ${loadaddr}'
+#setenv nandroot '/dev/mtdblock4 rw'
+#setenv nandrootfstype 'ubifs'
+#setenv run_eboot 'echo Starting EBOOT...; mmc dev ${mmcdev} && mmc rescan && mmc read 10042000 a 400 && go 10042000'
+#setenv serial 'CM-FX6-C1200QM-D2G-N0-ND0-U5-E-A-WB-V100-131110-0001c0140d54'
+#setenv stderr 'serial'
+#setenv stdin 'serial'
+#setenv stdout 'serial'
+#setenv stock 'setenv kernel uImage-3.0.35; run load_aimage'
+#setenv ubuntu_mmc 'setenv rootfs /dev/mmcblk0p3; run load_linux'
+#setenv video_dvi 'mxcfb0:dev=dvi,1280x800M-24@50,if=RGB24'
+#setenv video_hdmi 'mxcfb0:dev=hdmi,1920x1080M-24@50,if=RGB24'
+#
+
