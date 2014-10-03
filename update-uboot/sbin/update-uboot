@@ -17,33 +17,6 @@ set -x
 [ -x `which fw_printenv` ] || { echo "fw_printenv not found, me wants!"; exit 1 ; }
 [ -x `which mkimage` ] || { echo "mkimage not found, me wants!"; exit 1 ; }
 
-###################
-### VARS & PREP ###
-###################
-IFS='
-'
-
-CONF_DIR=${CONF_DIR:-/etc/u-boot}
-CONF_FILE=${CONF_FILE:-$CONF_DIR/update.conf}
-#Load settings
-. $CONF_DIR/update.conf
-
-UENV_UPDATE_METHOD=${UENV_UPDATE_METHO:-"scr"}
-UENV_READONLY=$(echo "${UENV_READONLY} ${UENV_RESERVED}" | tr ' ' '\n')
-BOOT_LOCATION=${BOOT_LOCATION:-"/boot"}
-BOOT_DELAY=${BOOT_DELAY:-5}
-DEFAULT_IMG=${DEFAULT_IMG:-"latest"}
-DEFAULT_DTB=${DEFAULT_DTB:-"latest"}
-BOOT_ARGS="${DEFAULT_BOOT_ARGS:-'console=${console},${baudrate} root=${boot_fs} rw rootwait ${video}'}${BOOT_ARGS:+ $BOOT_ARGS}"
-
-bootMount=$(getMount $BOOT_LOCATION)
-bootDev=$(df -l --output=source $bootMount | tail -1)
-TRY_DEVICES=${TRY_DEVICES:-"mmc sata"}
-OS_DEVICES=${OS_DEVICES:-$bootDev)}
-
-tmpDir=$(mktemp -d /tmp/uboot-XXXX)
-
-
 #################
 ### FUNCTIONS ###
 #################
@@ -106,10 +79,8 @@ function ubootBlockDev(){
 function generate(){
 #Generate the desired output for all applicable files in a dir
 #USAGE: generate <exec for scr's> <exec for senv's> <exec for penv's> <location>
-    script=$1
-    senv=$2
-    penv=$3
-    loc=$4
+    script=$1 ; senv=$2 ; penv=$3 ; loc=$4
+
     for file in $(find $loc -name '*\.tmpl' -o -name '*\.cmd' -o -name '*\.senv' -o -name '*\.penv' | sort) do
         echo -e "\n### $(basename $file)"
 
@@ -149,24 +120,37 @@ function updateBoot(){
    for file in $(find . -name '*\.pscr' | sort); do
        script=$(basename $file | sed 's|\.pscr$||')
        mkimage -C none -A arm -T script -d $file ${bootMount}/${script}.scr 1>&2
-       echo "setenv run_${script} 'TODO'" > $CONF_DIR/env.d/${script}-runner.cmd
+       echo "setenv scr_${script} 'scr=${script}.scr; run load_scr'" > $CONF_DIR/env.d/${script}-runner.cmd
    done
 
 }
 
 function uenv(){
    case $1 in
-      "scr") 
-         scriptGen $CONF_DIR/env.d > $tmpDir/env.pscr
-         #TODO
-         
+      "scr")
+	 currentCode=$(getUEnv | sed '/^ucode=/!d;s/^ucode=//g')
+         while [ -n "$newCode" ]; do
+           newCode=$(grep -m1 -ao '[0-9]' /dev/urandom | head -n1)
+	   if [ "$newCode" == "$currentCode" ]; then
+		   newCode=
+	   fi
+	done
+         scriptGen $CONF_DIR/env.d > ${tmpDir}/env.pscr
+	 cat >>$tmpDir/env.pscr <<SCRIPTHEAD
+setenv scr_uenv 'scr=env.scr; run load_scr'
+setenv bootcmd 'run init; if test \${ucode} != $newCode; then run scr_env ; fi ; scr=\${bootscr} ; run load_scr; dodaboot'
+setenv ucode $newCode
+saveenv
+reset
+SCRIPTHEAD
+         scriptGen $CONF_DIR/env.d > ${tmpDir}/env.pscr
+         mkimage -C none -A arm -T script -d ${tmpDir}/env.pscr ${bootMount}/env.scr
+
       ;;
 
       "senv")
          penvGen $CONF_DIR/env.d > $tmpDir/env.senv
-         #TODO
-         #make some diff of env
-         #fw_setenv -s $tmpDir/env
+         fw_setenv -s $tmpDir/env.senv
       ;;
 
       *) echo "Unsupported U-boot env update method $1"  ; exit ;; 
@@ -174,24 +158,24 @@ function uenv(){
 
 }
 
-function getEnv(){
+function getuenv(){
 #Print out current env to a backup
     fw_printenv | grep -v -f <(echo -e "$UENV_READONLY")
 }
 
-function saveEnv(){
+function backenv(){
 #Print out current env to a backup
     fw_printenv > $CONF_DIR/backup.penv
 }
 
 function penv2scr(){
 #Convert printenv-like output to script
-    sed "s|\([^=]\+\)=\(.*\)|setenv \1 '\2'|g" $1
+    sed -e '/^[[space:]]*d' -e "s|\([^=]\+\)=\(.*\)|setenv \1 '\2'|g" $1
 }  
 
 function penv2senv(){
 #Convert printenv-like output to setenv-like output
-    sed "s|\([^=]\+\)=\(.*\)|\1 '\2'|g" $1
+    sed -e '/^[[:space:]]*#/d' -e "s|\([^=]\+\)=\(.*\)|\1 '\2'|g" $1
 } 
 
 function senv2scr(){
@@ -201,15 +185,39 @@ function senv2scr(){
 
 function scr2penv(){
 #Convert script-like output to penv
-#Probably needs some love (EOL's, single quotes)
-    sed "s|setenv ||g;s|^\([^ ]\+\) [\']\{0,1\}|\1=|g;s|'$||g" $1
+    sed -e '/^setenv/!d' -e "s|^setenv ||g;s|^\([^ ]\+\) [\']\{0,1\}|\1=|g;s|'$||g" $1
 }
 
 function scr2senv(){
 #Convert script-like output to setenv
-#Probably needs some love (EOL's, single quotes)
-    sed "s|setenv ||g;" $1
+    sed -e '/^setenv/!d' -e "s|^setenv ||g;" $1
 }
+
+###################
+### VARS & PREP ###
+###################
+IFS='
+'
+
+CONF_DIR=${CONF_DIR:-/etc/u-boot}
+CONF_FILE=${CONF_FILE:-$CONF_DIR/update.conf}
+#Load settings
+. $CONF_DIR/update.conf
+
+UENV_UPDATE_METHOD=${UENV_UPDATE_METHO:-"scr"}
+UENV_READONLY=$(echo "${UENV_READONLY} ${UENV_RESERVED}" | tr ' ' '\n')
+BOOT_LOCATION=${BOOT_LOCATION:-"/boot"}
+BOOT_DELAY=${BOOT_DELAY:-5}
+DEFAULT_IMG=${DEFAULT_IMG:-"latest"}
+DEFAULT_DTB=${DEFAULT_DTB:-"latest"}
+BOOT_ARGS="${DEFAULT_BOOT_ARGS:-'console=${console},${baudrate} root=${boot_fs} rw rootwait ${video}'}${BOOT_ARGS:+ $BOOT_ARGS}"
+
+bootMount=$(getMount $BOOT_LOCATION)
+bootDev=$(df -l --output=source $bootMount | tail -1)
+TRY_DEVICES=${TRY_DEVICES:-"mmc sata"}
+OS_DEVICES=${OS_DEVICES:-$bootDev)}
+
+tmpDir=$(mktemp -d /tmp/uboot-XXXX)
 
 ##################
 #### EXECUTION ###
@@ -217,8 +225,9 @@ function scr2senv(){
 tmpDir=$(mktemp -d /tmp/uboot-XXXX)
 bootMount=$(getMount $BOOT_LOCATION)
 
-#saveEnv
 bootTmp=$(mktemp /tmp/ubootcmd-XXXX)
+
+#START DOING SOME ACTUAL STUFF
 
 
 if [[ $bootMount =~ ^/tmp ]]; then
