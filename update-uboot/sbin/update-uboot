@@ -8,6 +8,7 @@
 
 #Debug
 set -x
+rm -rf /tmp/uboot-*
 
 #########################
 ### PRE-FLIGHT CHECKS ###
@@ -81,7 +82,7 @@ function generate(){
 #USAGE: generate <exec for scr's> <exec for senv's> <exec for penv's> <location>
     script=$1 ; senv=$2 ; penv=$3 ; loc=$4
 
-    for file in $(find $loc -name '*\.tmpl' -o -name '*\.cmd' -o -name '*\.senv' -o -name '*\.penv' | sort) do
+    for file in $(find $loc -name '*\.tmpl' -o -name '*\.cmd' -o -name '*\.senv' -o -name '*\.penv' | sort); do
         echo -e "\n### $(basename $file)"
 
         if [[ "$file"  =~ \.cmd$ ]]; then
@@ -99,63 +100,37 @@ function generate(){
 
 function scriptGen(){
 #All files in $1 will accumulate into a .pscr script
-    generate $1 cat senv2scr penv2scr
+    generate cat senv2scr penv2scr $1
 }
 
 function senvGen(){
 #All files in $1 will accumulate into a setenv file 
-    generate $1 scr2senv cat penv2senv
+    generate scr2senv cat penv2senv $1
 }
 
 function penvGen(){
 #All files in $1 will accumulate into a printenv file 
-    generate $1 scr2penv senv2penv cat
+    generate scr2penv senv2penv cat $1
 }
 
 function updateBoot(){
    penvGen $CONF_DIR/uEnv.d > ${bootMount}/uEnv.txt
    scriptGen $CONF_DIR/boot.d > ${tmpDir}/boot.pscr
-   mkimage -C none -A arm -T script -d ${tmpDir}/boot.pscr ${bootMount}/boot.scr
-
-   for file in $(find . -name '*\.pscr' | sort); do
-       script=$(basename $file | sed 's|\.pscr$||')
-       mkimage -C none -A arm -T script -d $file ${bootMount}/${script}.scr 1>&2
-       echo "setenv scr_${script} 'scr=${script}.scr; run load_scr'" > $CONF_DIR/env.d/${script}-runner.cmd
-   done
-
+   mkimage -C none -A arm -T script -d ${tmpDir}/boot.pscr ${bootMount}/boot2.scr
 }
 
 function uenv(){
-   case $1 in
+   case $UENV_UPDATE_METHOD in
       "scr")
-	 currentCode=$(getUEnv | sed '/^ucode=/!d;s/^ucode=//g')
-         while [ -n "$newCode" ]; do
-           newCode=$(grep -m1 -ao '[0-9]' /dev/urandom | head -n1)
-	   if [ "$newCode" == "$currentCode" ]; then
-		   newCode=
-	   fi
-	done
-         scriptGen $CONF_DIR/env.d > ${tmpDir}/env.pscr
-	 cat >>$tmpDir/env.pscr <<SCRIPTHEAD
-setenv scr_uenv 'scr=env.scr; run load_scr'
-setenv bootcmd 'run init; if test \${ucode} != $newCode; then run scr_env ; fi ; scr=\${bootscr} ; run load_scr; dodaboot'
-setenv ucode $newCode
-saveenv
-reset
-SCRIPTHEAD
          scriptGen $CONF_DIR/env.d > ${tmpDir}/env.pscr
          mkimage -C none -A arm -T script -d ${tmpDir}/env.pscr ${bootMount}/env.scr
-
       ;;
-
       "senv")
          penvGen $CONF_DIR/env.d > $tmpDir/env.senv
          fw_setenv -s $tmpDir/env.senv
       ;;
-
-      *) echo "Unsupported U-boot env update method $1"  ; exit ;; 
+      *) echo "Unsupported U-boot env update method $UENV_UPDATE_METHOD"  ; exit 1 ;; 
    esac
-
 }
 
 function getuenv(){
@@ -170,7 +145,7 @@ function backenv(){
 
 function penv2scr(){
 #Convert printenv-like output to script
-    sed -e '/^[[space:]]*d' -e "s|\([^=]\+\)=\(.*\)|setenv \1 '\2'|g" $1
+    sed -e '/^[[space:]]*#/d' -e "s|\([^=]\+\)=\(.*\)|setenv \1 '\2'|g" $1
 }  
 
 function penv2senv(){
@@ -222,12 +197,12 @@ tmpDir=$(mktemp -d /tmp/uboot-XXXX)
 ##################
 #### EXECUTION ###
 ##################
-tmpDir=$(mktemp -d /tmp/uboot-XXXX)
 bootMount=$(getMount $BOOT_LOCATION)
 
-bootTmp=$(mktemp /tmp/ubootcmd-XXXX)
-
 #START DOING SOME ACTUAL STUFF
+
+updateBoot
+uenv
 
 
 if [[ $bootMount =~ ^/tmp ]]; then

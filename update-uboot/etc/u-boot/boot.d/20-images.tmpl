@@ -1,22 +1,29 @@
 
 echo -e "\n#DTB list"
-cd /boot
+cd $bootMount
 i=0
 for file in $(ls -1R *.dtb); do
-    echo "setenv dtb$i 'setenv boot_dtb $file; load_dtb'"
+    echo "setenv dtb$i 'dtb=$file; load_dtb'"
     [ "$file" == $DEFAULT_DTB ] && echo -e "#default\nsetenv dtb \${dtb$i}"
     i=$(($i + 1))
 done
 
 echo -e "\n#Image list"
 i=0
-for file in $(ls -1R [uaz]Image*); do
-    if [[ "$file" =~ ^z ]]; then
-       bcmd=bootz
+for file in $(ls -1 *); do
+    imgType=$(mkimage -l $file 2>/dev/null | grep -i "kernel image")
+    
+    if [ -z "$imgType" ]; then
+	continue
+    elif [[ $imgType =~ uncompressed ]]; then
+	bcmd=bootm
+    elif [[ $imgType =~ compressed ]]; then
+	bcmd=bootz
     else
-       bcmd=bootm
-    fi 
-    echo "setenv img$i 'setenv boot_img $file; setenv booter $bcmd; run load_img'"
+	echo "Strange Kernel Image $file; $imgType" >&2
+    fi
+    
+    echo "setenv img$i 'img=$file; booter=$bcmd; run load_img'"
     [ "$file" == $DEFAULT_IMG ] && echo -e "#default\nsetenv img \${img$i}"
     i=$(($i + 1))
 done
