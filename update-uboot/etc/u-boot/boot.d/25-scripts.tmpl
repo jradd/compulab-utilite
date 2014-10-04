@@ -1,6 +1,0 @@
-     for file in $(find . -name '*\.pscr' | sort); do
-         script=$(basename $file | sed 's|\.pscr$||')
-         mkimage -C none -A arm -T script -d $file ${bootMount}/${script}.scr 1>&2
-         echo "setenv scr_${script} 'scr=${script}.scr; run load_scr'" 
-     done
-

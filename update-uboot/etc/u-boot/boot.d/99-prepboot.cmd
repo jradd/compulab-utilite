@@ -1,1 +1,0 @@
-run img debian
