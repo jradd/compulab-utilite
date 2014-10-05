@@ -2,3 +2,7 @@
 	path = ddrown
 	url = git@github.com:ddrown/utilite-kernel.git
 
+[submodule "utilite-uboot"]
+	path = utilite-uboot
+	url = https://github.com/utilite-computer/u-boot.git
+	branch = utilite/master
