@@ -27,12 +27,10 @@ function prepare() {
 #        curl -o ./config_lenhof http://www.lenhof.eu.org/utilite/config_debian-wheezy_v2
 }
 
-function getUBoot(){
-	cd $BASE/bootloader
-	git clone --depth 1 https://github.com/utilite-computer/u-boot.git
-
-	
-
+function doUBoot(){
+#I was actually hoping compiling the env util like this would solve the fw_setenv error, but it doesn't :(
+	cd $BASE/utilite-uboot
+        make mrproper cm_fx6_config tools env
 }
 
 function getKernel(){
