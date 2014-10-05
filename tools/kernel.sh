@@ -27,6 +27,14 @@ function prepare() {
 #        curl -o ./config_lenhof http://www.lenhof.eu.org/utilite/config_debian-wheezy_v2
 }
 
+function getUBoot(){
+	cd $BASE/bootloader
+	git clone --depth 1 https://github.com/utilite-computer/u-boot.git
+
+	
+
+}
+
 function getKernel(){
     cd $BASE
     curl -k $KERNELurl | tar xJv -f - || exit 1
