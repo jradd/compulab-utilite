@@ -2,8 +2,8 @@
 
 set -x
 BASE=/home/theloeki/cmtools
-KERNEL="3.17-rc7"
-REV=4
+KERNEL="3.17"
+REV=5
 
 function prepare() {
         apt-get install curl patch bc make gcc ncurses-dev lzop u-boot-tools bzip2
@@ -110,6 +110,8 @@ function install(){
     sudo mkimage -A arm -O linux -T kernel -C none -a 0x10008000 -e 0x10008000 -n Linux-${KERNELver} -d arch/arm/boot/zImage /boot/uImage-${KERNELver}
     sudo cp arch/arm/boot/dts/imx6q-sbc-fx6m.dtb /boot/
 
+    update-uboot
+
 }
 
 function config(){
@@ -121,11 +123,12 @@ IFS='
 '
 
 KERNELdir="linux-$KERNEL"
-if [[ $KERNEL =~ rc ]]; then
+if [[ $KERNEL =~ ^3\.[0-9]+\.[0-9]+$ ]]; then
 	KERNELurl=https://www.kernel.org/pub/linux/kernel/v3.x/testing/linux-${KERNEL}.tar.xz
-	KERNEL=${KERNEL/-/.0-}
 else
 	KERNELurl=https://www.kernel.org/pub/linux/kernel/v3.x/linux-${KERNEL}.tar.xz
+	KERNEL=${KERNEL%-*}
+	KERNEL="${KERNEL}.0"
 fi
 
 KERNELver="${KERNEL}-l${REV}"
