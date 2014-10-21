@@ -2,8 +2,8 @@
 
 set -x
 BASE=/home/theloeki/cmtools
-KERNEL="3.17"
-REV=6
+KERNEL="3.17.1"
+REV=7
 
 function prepare() {
         apt-get install curl patch bc make gcc ncurses-dev lzop u-boot-tools bzip2
@@ -123,12 +123,17 @@ IFS='
 '
 
 KERNELdir="linux-$KERNEL"
-if [[ $KERNEL =~ ^3\.[0-9]+\.[0-9]+$ ]]; then
+
+if [[ $KERNEL =~ rc ]]; then
 	KERNELurl=https://www.kernel.org/pub/linux/kernel/v3.x/testing/linux-${KERNEL}.tar.xz
-else
-	KERNELurl=https://www.kernel.org/pub/linux/kernel/v3.x/linux-${KERNEL}.tar.xz
 	KERNEL=${KERNEL%-*}
 	KERNEL="${KERNEL}.0"
+else
+	KERNELurl=https://www.kernel.org/pub/linux/kernel/v3.x/linux-${KERNEL}.tar.xz
+	if [[ $KERNEL =~ ^[0-9]+\.[0-9]+$ ]]; then
+	    KERNEL=${KERNEL%-*}
+	    KERNEL="${KERNEL}.0"
+	fi
 fi
 
 KERNELver="${KERNEL}-l${REV}"
