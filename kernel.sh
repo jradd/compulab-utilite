@@ -27,6 +27,10 @@ function prepare() {
 #        curl -o ./config_lenhof http://www.lenhof.eu.org/utilite/config_debian-wheezy_v2
 }
 
+function package(){
+    tar -czvf ${BASE}/pkg/utilite-linux-${KERNELver}.tgz /boot/*${KERNEL}* /lib/modules/${KERNEL}/
+}
+
 function doUBoot(){
 #I was actually hoping compiling the env util like this would solve the fw_setenv error, but it doesn't :(
 	cd $BASE/utilite-uboot

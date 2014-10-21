@@ -6,3 +6,4 @@ bootloader/
 eeprom/
 TRASH/
 *.log
+pkg/*
