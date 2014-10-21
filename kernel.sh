@@ -28,7 +28,9 @@ function prepare() {
 }
 
 function package(){
-    tar -czvf ${BASE}/pkg/utilite-linux-${KERNELver}.tgz /boot/*${KERNEL}* /lib/modules/${KERNEL}/
+    pkg=${BASE}/pkg/utilite-linux-${KERNELver}.tgz
+    rm $pkg
+    tar -czvf $pkg /boot/*${KERNEL}* /boot/imx6q-sbc-fx6m.dtb /lib/modules/${KERNEL}/
 }
 
 function doUBoot(){
