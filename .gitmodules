@@ -6,3 +6,6 @@
 	path = utilite-uboot
 	url = https://github.com/utilite-computer/u-boot.git
 	branch = utilite/master
+[submodule "oneru"]
+	path = oneru
+	url = https://github.com/oneru/utilite.git

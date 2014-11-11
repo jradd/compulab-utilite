@@ -2,8 +2,8 @@
 
 set -x
 BASE=/home/theloeki/cmtools
-KERNEL="3.17.1"
-REV=7
+KERNEL="3.17.2"
+REV=9
 
 function prepare() {
         apt-get install curl patch bc make gcc ncurses-dev lzop u-boot-tools bzip2
