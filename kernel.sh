@@ -2,8 +2,8 @@
 
 set -x
 BASE=/home/theloeki/cmtools
-KERNEL="3.17.2"
-REV=9
+KERNEL="3.17.8"
+REV=10
 
 function prepare() {
         apt-get install curl patch bc make gcc ncurses-dev lzop u-boot-tools bzip2
@@ -71,6 +71,7 @@ function getPkgUmiddelb(){
 }
 
 function patch(){
+    cd $BASE
     mkdir ${KERNELdir}/clog/
     cp -v dts/cm/* ${KERNELdir}/arch/arm/boot/dts/
 
@@ -82,6 +83,8 @@ function patch(){
 
     #Fix Makefile in arch/arm/boot/dts:
     sed -i 's|imx6q-cm-fx6.dtb|imx6q-sbc-fx6m.dtb|g' ${KERNELdir}/arch/arm/boot/dts/Makefile
+
+    cp -v configs/${CONFver}.config ${KERNELdir}/.config
 }
 
 function compile(){
@@ -120,9 +123,11 @@ function install(){
 
 }
 
-function config(){
-   echo HOI
-
+function fullRun(){
+    getKernel
+    patch
+    compile
+    install
 }
 
 IFS='
@@ -143,6 +148,7 @@ else
 fi
 
 KERNELver="${KERNEL}-l${REV}"
+CONFver="${KERNEL%\.*}-l${REV}"
 #Useless for now
 #KVER="${KERNEL}-l${REV}"
 cd $BASE
